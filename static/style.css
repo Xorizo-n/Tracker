@@ -1,0 +1,212 @@
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-family: 'Arial', sans-serif;
+    height: 100vh;
+    margin: 0;
+    padding: 20px;
+    overflow: hidden;
+}
+
+.container-tv {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.header {
+    text-align: center;
+    margin-bottom: 20px;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 15px;
+    border-radius: 15px;
+    backdrop-filter: blur(10px);
+}
+
+.header h1 {
+    margin-bottom: 5px !important;
+}
+
+.current-time {
+    font-size: 1.2em;
+    opacity: 0.9;
+}
+
+.time-separator {
+    margin: 0 10px;
+    opacity: 0.6;
+}
+
+.today-section {
+    background: rgba(255, 255, 255, 0.95);
+    color: #333;
+    border-radius: 20px;
+    padding: 30px;
+    margin-bottom: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    min-height: 200px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.today-duty {
+    font-size: 3.5em;
+    font-weight: bold;
+    color: #2c3e50;
+    margin: 20px 0;
+}
+
+.today-date {
+    font-size: 2em;
+    color: #7f8c8d;
+}
+
+.no-duty {
+    font-size: 2.5em;
+    color: #e74c3c;
+}
+
+.schedule-section {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.95);
+    color: #333;
+    border-radius: 20px;
+    padding: 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    overflow-y: auto;
+}
+
+.week-row {
+    margin-bottom: 25px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border-left: 5px solid #667eea;
+}
+
+.week-dates {
+    font-weight: bold;
+    color: #2c3e50;
+    margin-bottom: 10px;
+    text-align: center;
+    font-size: 1.1em;
+}
+
+.weekdays-header {
+    display: flex;
+    margin-bottom: 8px;
+}
+
+.weekday-cell {
+    flex: 1;
+    text-align: center;
+    font-weight: bold;
+    color: #5a6fd8;
+    font-size: 0.9em;
+    padding: 2px;
+}
+
+.day-cell {
+    padding: 8px 5px;
+    text-align: center;
+    border-right: 1px solid #dee2e6;
+}
+
+.day-cell:last-child {
+    border-right: none;
+}
+
+.date-header {
+    font-weight: bold;
+    color: #2c3e50;
+    font-size: 0.95em;
+    margin-bottom: 5px;
+}
+
+.duty-name {
+    font-size: 0.9em;
+    color: #34495e;
+}
+
+.today-highlight {
+    background: #fff3cd !important;
+    border: 2px solid #ffc107;
+    border-radius: 5px;
+}
+
+.today-highlight .date-header {
+    color: #d35400;
+}
+
+.today-highlight .duty-name {
+    font-weight: bold;
+}
+
+.last-updated {
+    position: fixed;
+    bottom: 10px;
+    right: 20px;
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 10px;
+    font-size: 0.8em;
+}
+
+.refresh-btn {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    padding: 10px 15px;
+    border-radius: 50%;
+    backdrop-filter: blur(10px);
+    transition: transform 0.2s;
+}
+
+.refresh-btn:hover {
+    transform: scale(1.1);
+    background: rgba(255, 255, 255, 0.3);
+}
+
+/* Стили для скроллбара */
+.schedule-section::-webkit-scrollbar {
+    width: 8px;
+}
+
+.schedule-section::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.schedule-section::-webkit-scrollbar-thumb {
+    background: #667eea;
+    border-radius: 4px;
+}
+
+.schedule-section::-webkit-scrollbar-thumb:hover {
+    background: #5a6fd8;
+}
+
+/* Стили для сообщений об ошибках */
+.error-container {
+    margin: 20px 0;
+}
+
+.alert-danger {
+    background: rgba(248, 215, 218, 0.95);
+    border: 2px solid #f5c6cb;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.error-duty {
+    font-size: 2.5em;
+    color: #e74c3c;
+    font-weight: bold;
+    margin: 20px 0;
+}
