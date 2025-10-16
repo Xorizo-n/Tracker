@@ -1,274 +1,331 @@
 #!/bin/bash
 
-echo "🚀 Настройка Duty Schedule App на Linux"
-echo "========================================"
+set -e  # Выход при ошибке
+
+echo "🚀 Настройка и запуск Duty Schedule App для Linux"
+echo "=================================================="
 
 # Текущая директория
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_FILE="$APP_DIR/.env"
-CREDENTIALS_FILE="$APP_DIR/credentials.json"
+cd "$APP_DIR"
 
-# Функции
-show_menu() {
-    echo
-    echo "============ ГЛАВНОЕ МЕНЮ ============"
-    echo "1. Настроить Google Sheets доступ"
-    echo "2. Проверить текущие настройки"
-    echo "3. Создать файл .env"
-    echo "4. Запустить приложение"
-    echo "5. Создать службу systemd"
-    echo "6. Скомпилировать приложение"
-    echo "7. Выход"
-    echo
-    read -p "Выберите действие [1-7]: " choice
+echo "📁 Рабочая директория: $APP_DIR"
+
+# =============================================================================
+# ФУНКЦИИ
+# =============================================================================
+
+install_dependencies() {
+    echo "📦 Установка системных зависимостей..."
+    sudo apt update
+    sudo apt install -y python3 python3-venv python3-pip python3-dev
+    echo "✅ Системные зависимости установлены"
 }
 
-setup_google() {
-    echo
-    echo "======== НАСТРОЙКА GOOGLE SHEETS ========="
-    
-    read -p "Введите URL вашей Google таблицы: " google_sheet_url
-    if [ -z "$google_sheet_url" ]; then
-        echo "❌ URL не может быть пустым!"
-        return 1
+create_venv() {
+    echo "🐍 Создание виртуального окружения..."
+    if [ ! -d "venv" ]; then
+        python3 -m venv venv
+        echo "✅ Виртуальное окружение создано"
+    else
+        echo "✅ Виртуальное окружение уже существует"
     fi
+}
+
+install_python_deps() {
+    echo "📥 Установка Python зависимостей..."
+    source venv/bin/activate
+    pip install --upgrade pip
+    pip install -r requirements.txt
+    echo "✅ Python зависимости установлены"
+}
+
+setup_environment() {
+    echo "⚙️  Настройка окружения..."
     
-    # Проверяем URL
-    if [[ ! "$google_sheet_url" == *"https://docs.google.com/spreadsheets/"* ]]; then
-        echo "⚠️  Предупреждение: URL не похож на Google таблицу"
-        read -p "Продолжить? [y/N]: " continue_setup
-        if [[ ! "$continue_setup" =~ ^[Yy]$ ]]; then
-            return 1
+    if [ ! -f ".env" ]; then
+        echo "📝 Создание файла .env..."
+        read -p "Введите URL вашей Google таблицы: " google_sheet_url
+        
+        if [ -z "$google_sheet_url" ]; then
+            echo "❌ URL не может быть пустым!"
+            exit 1
         fi
-    fi
-    
-    # Создаем .env файл
-    echo "Создание файла .env..."
-    cat > "$ENV_FILE" << EOF
+        
+        cat > .env << EOF
 # Конфигурация Duty Schedule App
 GOOGLE_SHEET_URL=$google_sheet_url
 GOOGLE_CREDENTIALS_FILE=credentials.json
 FLASK_DEBUG=False
 EOF
-
-    echo "✅ Файл .env создан/обновлен"
+        echo "✅ Файл .env создан"
+    else
+        echo "✅ Файл .env уже существует"
+    fi
     
     # Проверяем credentials.json
-    if [ -f "$CREDENTIALS_FILE" ]; then
-        echo "✅ Файл credentials.json найден"
-    else
+    if [ ! -f "credentials.json" ]; then
         echo "❌ Файл credentials.json не найден!"
         echo
-        echo "📝 Инструкция:"
-        echo "1. Создайте сервисный аккаунт в Google Cloud Console"
-        echo "2. Скачайте JSON файл с ключами"
-        echo "3. Переименуйте его в credentials.json"
-        echo "4. Положите в папку с приложением"
+        echo "📝 Инструкция по получению credentials.json:"
+        echo "1. Перейдите в Google Cloud Console: https://console.cloud.google.com/"
+        echo "2. Создайте новый проект или выберите существующий"
+        echo "3. Включите Google Sheets API и Google Drive API"
+        echo "4. Создайте сервисный аккаунт"
+        echo "5. Скачайте JSON ключи и переименуйте в credentials.json"
+        echo "6. Положите файл в папку: $APP_DIR/"
+        echo "7. Дайте доступ к таблице для email сервисного аккаунта"
         echo
-        read -p "Нажмите Enter для продолжения..."
+        read -p "После добавления credentials.json нажмите Enter..."
+    else
+        echo "✅ Файл credentials.json найден"
     fi
 }
 
-check_settings() {
-    echo
-    echo "======== ТЕКУЩИЕ НАСТРОЙКИ ========="
+check_environment() {
+    echo "🔍 Проверка окружения..."
     
-    if [ -f "$ENV_FILE" ]; then
-        echo "📄 Файл .env: НАЙДЕН"
-        echo "Содержимое:"
-        cat "$ENV_FILE"
-    else
-        echo "📄 Файл .env: НЕ НАЙДЕН"
-    fi
-
-    echo
-    if [ -f "$CREDENTIALS_FILE" ]; then
-        echo "🔑 Файл credentials.json: НАЙДЕН"
-    else
-        echo "🔑 Файл credentials.json: НЕ НАЙДЕН"
-    fi
-
-    echo
-    echo "🌐 Переменные окружения:"
-    printenv | grep GOOGLE_ || echo "❌ Переменные GOOGLE_ не установлены"
+    local errors=0
     
-    read -p "Нажмите Enter для продолжения..."
+    if [ ! -f ".env" ]; then
+        echo "❌ Файл .env не найден"
+        ((errors++))
+    else
+        echo "✅ Файл .env найден"
+        # Загружаем переменные для проверки
+        export $(grep -v '^#' .env | xargs)
+    fi
+    
+    if [ ! -f "credentials.json" ]; then
+        echo "❌ Файл credentials.json не найден"
+        ((errors++))
+    else
+        echo "✅ Файл credentials.json найден"
+    fi
+    
+    if [ ! -d "venv" ]; then
+        echo "❌ Виртуальное окружение не найдено"
+        ((errors++))
+    else
+        echo "✅ Виртуальное окружение найдено"
+    fi
+    
+    if [ ! -f "requirements.txt" ]; then
+        echo "❌ Файл requirements.txt не найден"
+        ((errors++))
+    else
+        echo "✅ Файл requirements.txt найден"
+    fi
+    
+    if [ $errors -gt 0 ]; then
+        echo "❌ Найдено $errors ошибок. Запустите скрипт заново."
+        exit 1
+    fi
+    
+    echo "✅ Все проверки пройдены успешно"
 }
 
-create_env() {
-    echo
-    echo "======== СОЗДАНИЕ .ENV ФАЙЛА ========="
+run_app_directly() {
+    echo "🚀 Запуск приложения напрямую..."
+    source venv/bin/activate
+    cd "$APP_DIR"
+    python3 duty_app.py
+}
+
+compile_app() {
+    echo "🔨 Компиляция приложения..."
+    source venv/bin/activate
     
-    if [ -f "$ENV_FILE" ]; then
-        read -p "Файл .env уже существует. Перезаписать? [y/N]: " overwrite
-        if [[ ! "$overwrite" =~ ^[Yy]$ ]]; then
-            return
-        fi
+    # Устанавливаем PyInstaller если нужно
+    if ! pip list | grep -q pyinstaller; then
+        echo "📦 Установка PyInstaller..."
+        pip install pyinstaller
     fi
     
-    read -p "Введите URL Google таблицы: " google_sheet_url
-    if [ -z "$google_sheet_url" ]; then
-        echo "❌ URL не может быть пустым!"
+    # Очищаем предыдущие сборки
+    if [ -d "dist" ]; then
+        rm -rf dist
+    fi
+    if [ -d "build" ]; then
+        rm -rf build
+    fi
+    
+    # Компилируем
+    echo "🔨 Компиляция..."
+    pyinstaller --onefile \
+        --add-data "templates:templates" \
+        --add-data "static:static" \
+        --add-data ".env:." \
+        --add-data "credentials.json:." \
+        --console \
+        --name "duty_schedule" \
+        duty_app.py
+    
+    # Проверяем результат
+    if [ -f "dist/duty_schedule" ]; then
+        chmod +x dist/duty_schedule
+        echo "✅ Приложение скомпилировано: dist/duty_schedule"
+    else
+        echo "❌ Ошибка компиляции"
+        exit 1
+    fi
+}
+
+run_compiled_app() {
+    echo "🚀 Запуск скомпилированного приложения..."
+    
+    if [ ! -f "dist/duty_schedule" ]; then
+        echo "❌ Скомпилированное приложение не найдено"
+        echo "Запустите компиляцию сначала (пункт 3)"
         return 1
     fi
     
-    cat > "$ENV_FILE" << EOF
-# Конфигурация Duty Schedule App
-GOOGLE_SHEET_URL=$google_sheet_url
-GOOGLE_CREDENTIALS_FILE=credentials.json
-FLASK_DEBUG=False
-EOF
-
-    echo "✅ Файл .env создан"
-    read -p "Нажмите Enter для продолжения..."
-}
-
-run_app() {
-    echo
-    echo "======== ЗАПУСК ПРИЛОЖЕНИЯ ========="
-    
-    # Проверяем необходимые файлы
-    if [ ! -f "$ENV_FILE" ]; then
-        echo "❌ Файл .env не найден!"
-        echo "Запустите сначала настройку (пункт 1 или 3)"
-        read -p "Нажмите Enter для продолжения..."
-        return
-    fi
-
-    if [ ! -f "$CREDENTIALS_FILE" ]; then
-        echo "❌ Файл credentials.json не найден!"
-        read -p "Нажмите Enter для продолжения..."
-        return
-    fi
-
-    # Ищем исполняемый файл
-    APP_EXE=""
-    for exe in "duty_schedule_linux" "DutySchedule" "duty_app"; do
-        if [ -f "$APP_DIR/dist/$exe" ]; then
-            APP_EXE="$APP_DIR/dist/$exe"
-            break
-        elif [ -f "$APP_DIR/$exe" ]; then
-            APP_EXE="$APP_DIR/$exe"
-            break
-        fi
-    done
-
-    if [ -z "$APP_EXE" ]; then
-        echo "❌ Исполняемый файл не найден!"
-        echo "Убедитесь, что приложение скомпилировано"
-        read -p "Нажмите Enter для продолжения..."
-        return
-    fi
-
-    echo "🚀 Запуск: $APP_EXE"
-    echo "📍 Приложение будет доступно по адресу: http://localhost:5000"
-    echo "⏹️  Для остановки нажмите Ctrl+C"
-    echo
-    read -p "Нажмите Enter для запуска..."
-
-    # Запускаем приложение
     cd "$APP_DIR"
-    "$APP_EXE"
+    ./dist/duty_schedule
 }
 
 create_systemd_service() {
-    echo
-    echo "======== СОЗДАНИЕ СЛУЖБЫ SYSTEMD ========="
+    echo "🔧 Создание службы systemd..."
     
-    # Проверяем права
     if [ "$EUID" -ne 0 ]; then
         echo "⚠️  Для создания службы нужны права root"
         echo "Запустите скрипт с sudo: sudo ./setup_linux.sh"
-        read -p "Нажмите Enter для продолжения..."
-        return
+        return 1
     fi
-
-    # Ищем исполняемый файл
-    APP_EXE=""
-    for exe in "duty_schedule_linux" "DutySchedule" "duty_app"; do
-        if [ -f "$APP_DIR/dist/$exe" ]; then
-            APP_EXE="$APP_DIR/dist/$exe"
-            break
-        elif [ -f "$APP_DIR/$exe" ]; then
-            APP_EXE="$APP_DIR/$exe"
-            break
-        fi
-    done
-
-    if [ -z "$APP_EXE" ]; then
-        echo "❌ Исполняемый файл не найден!"
-        read -p "Нажмите Enter для продолжения..."
-        return
-    fi
-
-    # Создаем службу
-    SERVICE_FILE="/etc/systemd/system/duty-schedule.service"
     
-    cat > "$SERVICE_FILE" << EOF
+    # Определяем путь к приложению
+    local app_path="$APP_DIR/dist/duty_schedule"
+    if [ ! -f "$app_path" ]; then
+        echo "❌ Скомпилированное приложение не найдено: $app_path"
+        echo "Запустите компиляцию сначала (пункт 3)"
+        return 1
+    fi
+    
+    # Определяем пользователя
+    local service_user=$(logname)
+    if [ -z "$service_user" ]; then
+        service_user="$SUDO_USER"
+    fi
+    
+    echo "👤 Служба будет запущена от пользователя: $service_user"
+    
+    # Создаем службу
+    local service_file="/etc/systemd/system/duty-schedule.service"
+    
+    cat > "$service_file" << EOF
 [Unit]
 Description=Duty Schedule App
 After=network.target
+Wants=network.target
 
 [Service]
 Type=simple
-User=$SUDO_USER
+User=$service_user
+Group=$service_user
 WorkingDirectory=$APP_DIR
-ExecStart=$APP_EXE
+ExecStart=$app_path
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
+Environment=PYTHONUNBUFFERED=1
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-    echo "✅ Файл службы создан: $SERVICE_FILE"
+    echo "✅ Файл службы создан: $service_file"
     
-    # Перезагружаем systemd и запускаем службу
+    # Перезагружаем systemd
     systemctl daemon-reload
     systemctl enable duty-schedule.service
-    systemctl start duty-schedule.service
     
-    echo "✅ Служба запущена и добавлена в автозагрузку"
-    echo "📊 Статус: systemctl status duty-schedule"
-    echo "📋 Логи: journalctl -u duty-schedule -f"
-    echo "🛑 Остановка: systemctl stop duty-schedule"
-    
-    read -p "Нажмите Enter для продолжения..."
+    echo "✅ Служба добавлена в автозагрузку"
+    echo "🎯 Для запуска выполните: sudo systemctl start duty-schedule"
+    echo "📊 Для просмотра статуса: systemctl status duty-schedule"
 }
 
-compile_app() {
-    echo
-    echo "======== КОМПИЛЯЦИЯ ПРИЛОЖЕНИЯ ========="
-    
-    if [ ! -f "build_linux.sh" ]; then
-        echo "❌ Файл build_linux.sh не найден!"
-        read -p "Нажмите Enter для продолжения..."
-        return
+show_status() {
+    echo "📊 Статус службы:"
+    if systemctl is-active --quiet duty-schedule 2>/dev/null; then
+        echo "✅ Служба запущена"
+        echo "🌐 Приложение доступно по адресу: http://localhost:5000"
+    else
+        echo "❌ Служба не запущена"
     fi
     
-    chmod +x build_linux.sh
-    ./build_linux.sh
-    
-    read -p "Нажмите Enter для продолжения..."
+    echo
+    echo "📋 Полезные команды:"
+    echo "  systemctl status duty-schedule    - статус службы"
+    echo "  journalctl -u duty-schedule -f    - просмотр логов"
+    echo "  sudo systemctl start duty-schedule - запуск службы"
+    echo "  sudo systemctl stop duty-schedule  - остановка службы"
 }
 
-# Основной цикл
-while true; do
-    show_menu
-    case $choice in
-        1) setup_google ;;
-        2) check_settings ;;
-        3) create_env ;;
-        4) run_app ;;
-        5) create_systemd_service ;;
-        6) compile_app ;;
-        7) 
-            echo
-            echo "👋 До свидания!"
-            exit 0
-            ;;
-        *) echo "❌ Неверный выбор" ;;
-    esac
-done
+show_menu() {
+    echo
+    echo "============ ГЛАВНОЕ МЕНЮ ============"
+    echo "1. Полная установка (все этапы)"
+    echo "2. Только настройка окружения"
+    echo "3. Компиляция приложения"
+    echo "4. Запуск напрямую (без компиляции)"
+    echo "5. Запуск скомпилированного приложения"
+    echo "6. Создать службу systemd (требует sudo)"
+    echo "7. Показать статус службы"
+    echo "8. Выход"
+    echo
+    read -p "Выберите действие [1-8]: " choice
+}
+
+full_installation() {
+    echo "🎯 Запуск полной установки..."
+    install_dependencies
+    create_venv
+    install_python_deps
+    setup_environment
+    check_environment
+    compile_app
+    echo
+    echo "✅ Полная установка завершена!"
+    echo "🚀 Теперь вы можете:"
+    echo "   - Запустить приложение: ./setup_linux.sh (пункт 5)"
+    echo "   - Или создать службу: sudo ./setup_linux.sh (пункт 6)"
+}
+
+# =============================================================================
+# ОСНОВНАЯ ЛОГИКА
+# =============================================================================
+
+main() {
+    # Проверяем что мы в правильной директории
+    if [ ! -f "duty_app.py" ]; then
+        echo "❌ Ошибка: скрипт должен запускаться из папки с duty_app.py"
+        echo "Текущая директория: $APP_DIR"
+        exit 1
+    fi
+    
+    while true; do
+        show_menu
+        case $choice in
+            1) full_installation ;;
+            2) setup_environment ;;
+            3) compile_app ;;
+            4) run_app_directly ;;
+            5) run_compiled_app ;;
+            6) create_systemd_service ;;
+            7) show_status ;;
+            8) 
+                echo
+                echo "👋 До свидания!"
+                exit 0
+                ;;
+            *) echo "❌ Неверный выбор" ;;
+        esac
+        
+        echo
+        read -p "Нажмите Enter чтобы продолжить..."
+    done
+}
+
+# Запускаем основную функцию
+main
