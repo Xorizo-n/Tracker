@@ -14,18 +14,10 @@
             ⟳
         </button>
         
-        <!-- Заголовок -->
-        <div class="header">
-            <h1 class="display-4 mb-0">📅 График вечерних дежурств</h1>
-            <div class="current-time">
-                {{ today.strftime('%d.%m.%Y') }} <span class="time-separator">|</span> {{ current_time }}
-            </div>
-        </div>
-        
         <!-- Сегодняшний дежурный -->
         <div class="today-section">
             <div class="today-date">
-                Сегодня: {{ today.strftime('%d.%m.%Y') }} <span class="time-separator">|</span> {{ current_time }}
+                Сегодня: {{ today.strftime('%d.%m.%Y') }} <span class="time-separator">|</span> <span id="current-time">{{ current_time }}</span>
             </div>
             {% if today_duty %}
             <div class="today-duty">
@@ -65,14 +57,14 @@
                     </div>
                     <div class="weekdays-header">
                         {% for duty in week %}
-                        <div class="weekday-cell">
+                        <div class="weekday-cell {% if duty.weekday == 'СБ' %}saturday{% endif %}">
                             {{ duty.weekday }}
                         </div>
                         {% endfor %}
                     </div>
                     <div class="row">
                         {% for duty in week %}
-                        <div class="col day-cell {% if duty.date == today %}today-highlight{% endif %}">
+                        <div class="col day-cell {% if duty.date == today %}today-highlight{% endif %} {% if duty.weekday == 'СБ' %}saturday{% endif %}">
                             <div class="date-header">
                                 {{ duty.date.strftime('%d.%m') }}
                             </div>
@@ -122,12 +114,11 @@
             minute: '2-digit'
         });
         
-        // Обновляем время в заголовке
-        const timeElements = document.querySelectorAll('.current-time, .today-date');
-        timeElements.forEach(element => {
-            const datePart = element.textContent.split('|')[0];
-            element.innerHTML = datePart + '<span class="time-separator">|</span> ' + timeString;
-        });
+        // Обновляем время в секции "Сегодня"
+        const timeElement = document.getElementById('current-time');
+        if (timeElement) {
+            timeElement.textContent = timeString;
+        }
     }
     
     // Автоматическое обновление при ошибке

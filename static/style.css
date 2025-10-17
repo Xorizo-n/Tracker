@@ -14,29 +14,6 @@ body {
     flex-direction: column;
 }
 
-.header {
-    text-align: center;
-    margin-bottom: 20px;
-    background: rgba(0, 0, 0, 0.3);
-    padding: 15px;
-    border-radius: 15px;
-    backdrop-filter: blur(10px);
-}
-
-.header h1 {
-    margin-bottom: 5px !important;
-}
-
-.current-time {
-    font-size: 1.2em;
-    opacity: 0.9;
-}
-
-.time-separator {
-    margin: 0 10px;
-    opacity: 0.6;
-}
-
 .today-section {
     background: rgba(255, 255, 255, 0.95);
     color: #333;
@@ -66,6 +43,13 @@ body {
 .no-duty {
     font-size: 2.5em;
     color: #e74c3c;
+}
+
+.error-duty {
+    font-size: 2.5em;
+    color: #e74c3c;
+    font-weight: bold;
+    margin: 20px 0;
 }
 
 .schedule-section {
@@ -108,6 +92,12 @@ body {
     padding: 2px;
 }
 
+.weekday-cell.saturday {
+    color: #e74c3c;
+    background: rgba(231, 76, 60, 0.1);
+    border-radius: 3px;
+}
+
 .day-cell {
     padding: 8px 5px;
     text-align: center;
@@ -118,6 +108,11 @@ body {
     border-right: none;
 }
 
+.day-cell.saturday {
+    background: rgba(231, 76, 60, 0.08);
+    border-radius: 5px;
+}
+
 .date-header {
     font-weight: bold;
     color: #2c3e50;
@@ -125,9 +120,18 @@ body {
     margin-bottom: 5px;
 }
 
+.day-cell.saturday .date-header {
+    color: #c0392b;
+}
+
 .duty-name {
     font-size: 0.9em;
     color: #34495e;
+}
+
+.day-cell.saturday .duty-name {
+    color: #e74c3c;
+    font-weight: 500;
 }
 
 .today-highlight {
@@ -142,6 +146,23 @@ body {
 
 .today-highlight .duty-name {
     font-weight: bold;
+}
+
+/* Стили для сообщений об ошибках */
+.error-container {
+    margin: 20px 0;
+}
+
+.alert-danger {
+    background: rgba(248, 215, 218, 0.95);
+    border: 2px solid #f5c6cb;
+    border-radius: 10px;
+    padding: 20px;
+}
+
+.time-separator {
+    margin: 0 10px;
+    opacity: 0.6;
 }
 
 .last-updated {
@@ -166,6 +187,7 @@ body {
     border-radius: 50%;
     backdrop-filter: blur(10px);
     transition: transform 0.2s;
+    z-index: 1000;
 }
 
 .refresh-btn:hover {
@@ -190,23 +212,4 @@ body {
 
 .schedule-section::-webkit-scrollbar-thumb:hover {
     background: #5a6fd8;
-}
-
-/* Стили для сообщений об ошибках */
-.error-container {
-    margin: 20px 0;
-}
-
-.alert-danger {
-    background: rgba(248, 215, 218, 0.95);
-    border: 2px solid #f5c6cb;
-    border-radius: 10px;
-    padding: 20px;
-}
-
-.error-duty {
-    font-size: 2.5em;
-    color: #e74c3c;
-    font-weight: bold;
-    margin: 20px 0;
 }
