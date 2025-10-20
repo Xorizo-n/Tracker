@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="ru">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,17 +8,15 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
+
 <body>
+    <div class="background-animation"></div>
     <div class="container-tv">
-        <!-- Кнопка обновления -->
-        <button class="refresh-btn" onclick="refreshData()" title="Обновить">
-            ⟳
-        </button>
-        
         <!-- Сегодняшний дежурный -->
-        <div class="today-section">
+        <div class="today-section glass-effect">
             <div class="today-date">
-                Сегодня: {{ today.strftime('%d.%m.%Y') }} <span class="time-separator">|</span> <span id="current-time">{{ current_time }}</span>
+                Сегодня: {{ today.strftime('%d.%m.%Y') }} <span class="time-separator">|</span> <span
+                    id="current-time">{{ current_time }}</span>
             </div>
             {% if today_duty %}
             <div class="today-duty">
@@ -33,129 +32,105 @@
             </div>
             {% endif %}
         </div>
-        
+
         <!-- Ближайшие 2 недели или сообщение об ошибке -->
-        <div class="schedule-section">
+        <div class="schedule-section glass-effect">
             {% if error %}
-                <!-- Отображение ошибки -->
-                <div class="error-container">
-                    <div class="alert alert-danger">
-                        <h4>❌ Ошибка при загрузке данных</h4>
-                        <p>{{ error }}</p>
-                        <hr>
-                        <small class="text-muted">
-                            Автоматическая повторная попытка через 15 секунд...
-                        </small>
-                    </div>
+            <!-- Отображение ошибки -->
+            <div class="error-container">
+                <div class="alert alert-danger glass-effect">
+                    <h4>❌ Ошибка при загрузке данных</h4>
+                    <p>{{ error }}</p>
+                    <hr>
+                    <small class="text-muted">
+                        Автоматическая повторная попытка через 15 секунд...
+                    </small>
                 </div>
+            </div>
             {% elif weeks %}
-                <!-- Отображение расписания -->
-                {% for week in weeks %}
-                <div class="week-row">
-                    <div class="week-dates">
-                        {{ week[0].date.strftime('%d.%m') }} - {{ week[-1].date.strftime('%d.%m') }}
-                    </div>
-                    <div class="weekdays-header">
-                        {% for duty in week %}
-                        <div class="weekday-cell {% if duty.weekday == 'СБ' %}saturday{% endif %}">
-                            {{ duty.weekday }}
-                        </div>
-                        {% endfor %}
-                    </div>
-                    <div class="row">
-                        {% for duty in week %}
-                        <div class="col day-cell {% if duty.date == today %}today-highlight{% endif %} {% if duty.weekday == 'СБ' %}saturday{% endif %}">
-                            <div class="date-header">
-                                {{ duty.date.strftime('%d.%m') }}
+            <!-- Отображение расписания -->
+            {% for week in weeks %}
+            <div class="week-row glass-effect">
+                <div class="row">
+                    {% for duty in week %}
+                    <div
+                        class="col day-cell {% if duty.date == today %}today-highlight{% endif %} {% if duty.weekday == 'СБ' %}saturday{% endif %} {% if duty.weekday == 'ВС' %}sunday{% endif %}">
+                        <div class="date-header">
+                            <div
+                                class="weekday {% if duty.weekday == 'СБ' %}saturday{% endif %} {% if duty.weekday == 'ВС' %}sunday{% endif %}">
+                                {{ duty.weekday }}
                             </div>
-                            <div class="duty-name">
-                                {{ duty.name }}
-                            </div>
+                            {{ duty.date.strftime('%d.%m') }}
                         </div>
-                        {% endfor %}
+                        <div class="duty-name">
+                            {{ duty.name }}
+                        </div>
                     </div>
+                    {% endfor %}
                 </div>
-                {% endfor %}
+            </div>
+            {% endfor %}
             {% else %}
-                <div class="text-center text-muted py-4">
-                    Нет дежурств на ближайшие 2 недели
-                </div>
+            <div class="text-center text-muted py-4">
+                Нет дежурств на ближайшие 2 недели
+            </div>
             {% endif %}
         </div>
-        
+
         <!-- Время обновления -->
-        <div class="last-updated">
+        <div class="last-updated glass-effect">
             Обновлено: {{ last_updated }}
         </div>
     </div>
 
     <script>
-    function refreshData() {
-        fetch('/refresh')
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    location.reload();
-                } else if (data.error) {
-                    alert('Ошибка: ' + data.error);
-                }
-            })
-            .catch(error => {
-                console.error('Ошибка:', error);
-                alert('Ошибка при обновлении данных');
+        // Обновляем время каждую минуту
+        function updateTime() {
+            const now = new Date();
+            const timeString = now.toLocaleTimeString('ru-RU', {
+                hour: '2-digit',
+                minute: '2-digit'
             });
-    }
-    
-    // Обновляем время каждую минуту
-    function updateTime() {
-        const now = new Date();
-        const timeString = now.toLocaleTimeString('ru-RU', { 
-            hour: '2-digit', 
-            minute: '2-digit'
-        });
-        
-        // Обновляем время в секции "Сегодня"
-        const timeElement = document.getElementById('current-time');
-        if (timeElement) {
-            timeElement.textContent = timeString;
+
+            // Обновляем время в секции "Сегодня"
+            const timeElement = document.getElementById('current-time');
+            if (timeElement) {
+                timeElement.textContent = timeString;
+            }
         }
-    }
-    
-    // Автоматическое обновление при ошибке
-    function checkForErrorsAndRefresh() {
-        const errorContainer = document.querySelector('.error-container');
-        if (errorContainer) {
-            console.log('Обнаружена ошибка, повторная попытка через 15 секунд...');
-            setTimeout(() => {
-                location.reload();
-            }, 15000);
+
+        // Автоматическое обновление при ошибке
+        function checkForErrorsAndRefresh() {
+            const errorContainer = document.querySelector('.error-container');
+            if (errorContainer) {
+                console.log('Обнаружена ошибка, повторная попытка через 15 секунд...');
+                setTimeout(() => {
+                    location.reload();
+                }, 15000);
+            }
         }
-    }
-    
-    // Обновляем время сразу и каждую минуту
-    updateTime();
-    setInterval(updateTime, 60000);
-    
-    // Автообновление данных каждые 5 минут (только если нет ошибок)
-    setInterval(() => {
-        const errorContainer = document.querySelector('.error-container');
-        if (!errorContainer) {
-            refreshData();
-        }
-    }, 300000);
-    
-    // Проверяем ошибки при загрузке
-    document.addEventListener('DOMContentLoaded', function() {
-        checkForErrorsAndRefresh();
-        
+
+        // Обновляем время сразу и каждую минуту
+        updateTime();
+        setInterval(updateTime, 60000);
+
+        // Автообновление данных каждые 5 минут
+        setInterval(() => {
+            location.reload();
+        }, 300000);
+
         // Плавное появление контента
-        document.body.style.opacity = '0';
-        document.body.style.transition = 'opacity 0.5s ease-in-out';
-        
-        setTimeout(() => {
-            document.body.style.opacity = '1';
-        }, 100);
-    });
+        document.addEventListener('DOMContentLoaded', function () {
+            checkForErrorsAndRefresh();
+
+            document.body.style.opacity = '0';
+            document.body.style.transition = 'opacity 0.5s ease-in-out';
+
+            setTimeout(() => {
+                document.body.style.opacity = '1';
+            }, 100);
+        });
     </script>
 </body>
+
 </html>

@@ -170,8 +170,8 @@ def get_weekday_name(date_obj):
         2: 'СР',
         3: 'ЧТ',
         4: 'ПТ',
-        5: 'СБ',
-        6: 'ВС'
+        5: 'СБ',  # Суббота
+        6: 'ВС'   # Воскресенье
     }
     return weekdays[date_obj.weekday()]
 
@@ -310,51 +310,82 @@ def get_today_duty(schedule_data):
     logger.warning("На сегодня дежурный не назначен")
     return None
 
-def get_current_and_next_weeks(schedule_data):
-    """Получаем текущую и следующую неделю дежурств"""
+def get_two_work_weeks(schedule_data):
+    """Получаем 2 недели рабочих дней (12 дней: ПН-СБ)"""
     if not schedule_data:
         logger.warning("Нет данных для отображения")
         return []
     
     today = date.today()
     
-    # Вычисляем дату через 2 недели
-    two_weeks_later = today + timedelta(days=14)
+    # Определяем начало текущей недели (понедельник)
+    current_week_start = today - timedelta(days=today.weekday())
     
-    # Фильтруем дежурства на ближайшие 2 недели
-    upcoming_duties = [duty for duty in schedule_data if today <= duty['date'] <= two_weeks_later]
+    # Если сегодня воскресенье, начинаем со следующей недели
+    if today.weekday() == 6:  # Воскресенье
+        current_week_start = today + timedelta(days=1)
+    else:
+        # Иначе начинаем с текущего понедельника
+        current_week_start = today - timedelta(days=today.weekday())
     
-    logger.info(f"Дежурства на ближайшие 2 недели: {len(upcoming_duties)}")
+    logger.info(f"Сегодня: {today.strftime('%d.%m.%Y')} ({get_weekday_name(today)})")
     
-    # Сортируем по дате
-    upcoming_duties.sort(key=lambda x: x['date'])
-    
-    # Группируем по неделям
+    # Создаем 2 недели рабочих дней (12 дней: ПН-СБ)
     weeks = []
-    current_week = []
+    all_work_days = []
     
-    for duty in upcoming_duties:
-        if not current_week:
-            current_week.append(duty)
+    # Генерируем 12 рабочих дней (2 недели × 6 дней)
+    for week_offset in range(2):  # 2 недели
+        week_start = current_week_start + timedelta(weeks=week_offset)
+        week_days = []
+        
+        # Добавляем дни с понедельника по субботу (6 дней)
+        for day_offset in range(6):  # ПН-СБ
+            current_date = week_start + timedelta(days=day_offset)
+            week_days.append(current_date)
+        
+        all_work_days.extend(week_days)
+    
+    logger.info(f"Сгенерировано {len(all_work_days)} рабочих дней для отображения")
+    
+    # Создаем словарь для быстрого поиска дежурств по дате
+    schedule_dict = {duty['date']: duty for duty in schedule_data}
+    
+    # Формируем данные для отображения
+    display_weeks = []
+    current_week_data = []
+    
+    for i, work_date in enumerate(all_work_days):
+        # Ищем дежурного на эту дату
+        duty = schedule_dict.get(work_date)
+        
+        if duty:
+            # Используем данные из таблицы
+            display_duty = duty.copy()
         else:
-            # Если разница больше 7 дней, начинаем новую неделю
-            days_diff = (duty['date'] - current_week[-1]['date']).days
-            if days_diff > 7:
-                weeks.append(current_week)
-                current_week = [duty]
-            else:
-                current_week.append(duty)
+            # Создаем пустую запись
+            display_duty = {
+                'date': work_date,
+                'name': '',
+                'date_str': work_date.strftime('%d.%m.%Y'),
+                'raw_name': '',
+                'weekday': get_weekday_name(work_date)
+            }
+        
+        current_week_data.append(display_duty)
+        
+        # Разделяем на недели (по 6 дней)
+        if len(current_week_data) == 6:
+            display_weeks.append(current_week_data)
+            current_week_data = []
     
-    if current_week:
-        weeks.append(current_week)
+    # Исправлено: проверяем current_week_data вместо current_work_days
+    if current_week_data:
+        display_weeks.append(current_week_data)
     
-    logger.info(f"Отображаем дежурства на {len(weeks)} недель(и)")
-    for i, week in enumerate(weeks):
-        start_date = week[0]['date'].strftime('%d.%m')
-        end_date = week[-1]['date'].strftime('%d.%m')
-        logger.info(f"   Неделя {i+1}: {start_date} - {end_date} ({len(week)} дежурств)")
+    logger.info(f"Сформировано {len(display_weeks)} недель для отображения")
     
-    return weeks
+    return display_weeks
 
 # =============================================================================
 # МАРШРУТЫ FLASK
@@ -374,7 +405,7 @@ def index():
     
     if schedule_data:
         today_duty = get_today_duty(schedule_data)
-        weeks = get_current_and_next_weeks(schedule_data)
+        weeks = get_two_work_weeks(schedule_data)
     else:
         error_display = error_msg or "Не удалось загрузить данные"
         if status == "rate_limit":
@@ -429,14 +460,13 @@ def debug_info():
     
     schedule_data, error_msg, status = get_schedule_data_with_protection()
     today_duty = get_today_duty(schedule_data) if schedule_data else None
-    weeks = get_current_and_next_weeks(schedule_data) if schedule_data else []
+    weeks = get_two_work_weeks(schedule_data) if schedule_data else []
     
     debug_info = {
         'total_records': len(schedule_data) if schedule_data else 0,
         'today_duty': today_duty,
-        'upcoming_weeks': weeks,
+        'display_weeks': weeks,
         'today': date.today().strftime('%d.%m.%Y'),
-        'two_weeks_later': (date.today() + timedelta(days=14)).strftime('%d.%m.%Y'),
         'last_error': last_error,
         'cache_status': 'active' if schedule_cache else 'empty',
         'request_status': status
@@ -455,6 +485,7 @@ def main():
     print("🚀 Запуск приложения График дежурств")
     print("=" * 60)
     print(f"📊 Защита от частых запросов: {MIN_REQUEST_INTERVAL} секунд")
+    print(f"📅 Отображение: 2 недели рабочих дней (12 дней)")
     print(f"🔗 Google Sheet URL: {GOOGLE_SHEET_URL}")
     print(f"🔑 Credentials file: {CREDENTIALS_FILE}")
     print(f"📝 Логи (только ошибки): duty_app.log")
